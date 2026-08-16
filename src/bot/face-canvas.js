@@ -83,6 +83,9 @@ export class FaceCanvas {
     const s = this.scale;
     ctx.setTransform(s, 0, 0, s, 0, 0);
     ctx.clearRect(0, 0, VIEW, VIEW);
+    // 不透明深色底（全息球底色，WebGPU 下透明纹理不可靠，用高对比方案）
+    ctx.fillStyle = "#1c2733";
+    ctx.fillRect(0, 0, VIEW, VIEW);
 
     const { rings, eyeTransforms, body, state, color, line } = snapshot;
 
@@ -92,8 +95,25 @@ export class FaceCanvas {
     ctx.rotate((body.rot * Math.PI) / 180);
     ctx.scale(body.sx, body.sy);
     const blob = new Path2D(BLOB_PATH);
+    // 全息外发光：blob 边缘柔和光晕（提高透明球上的可见性）
+    ctx.save();
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 26;
+    ctx.fillStyle = "rgba(255,255,255,0.10)";
+    ctx.fill(blob);
+    ctx.restore();
     ctx.fillStyle = color;
     ctx.fill(blob);
+    // 腮红（萌感）：脸颊两侧半透明圆
+    ctx.globalAlpha = 0.55;
+    ctx.fillStyle = "#ff7d9e";
+    ctx.beginPath();
+    ctx.ellipse(60, 152, 13, 9, 0, 0, TAU);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(170, 152, 13, 9, 0, 0, TAU);
+    ctx.fill();
+    ctx.globalAlpha = 1;
     // 顶部釉面高光（让屏内小脸也有立体感）
     ctx.beginPath();
     ctx.ellipse(88, 48, 30, 14, -0.5, 0, TAU);

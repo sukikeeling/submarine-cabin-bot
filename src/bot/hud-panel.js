@@ -29,26 +29,39 @@ export function createHudPanel({ scene, camera, dom, position, radius = 0.3 }) {
   texture.minFilter = THREE.LinearFilter;
   texture.generateMipmaps = false;
 
-  /* —— 面板 mesh（双面，微曲面） —— */
-  const panelGeometry = new THREE.CircleGeometry(radius, 48);
+  /* —— 面板 mesh（全息球：小脸包在立体球面上，告别平面贴片感） —— */
+  const panelGeometry = new THREE.SphereGeometry(radius, 48, 32);
+  // 平面投影 UV：正面(+z)采样画布中央(小脸)，背面/侧面采样画布边缘(透明)——
+  // 不依赖 rotation、不镜像，blob 永远正对 +z（观察者方向）
+  {
+    const uv = panelGeometry.attributes.uv;
+    const pos = panelGeometry.attributes.position;
+    for (let i = 0; i < pos.count; i += 1) {
+      const x = pos.getX(i);
+      const y = pos.getY(i);
+      const z = pos.getZ(i);
+      const d = Math.sqrt(x * x + y * y + z * z) || 1;
+      uv.setXY(i, 0.5 + (x / d) * 0.5, 0.5 + (y / d) * 0.5);
+    }
+    uv.needsUpdate = true;
+  }
+  // 不透明材质 + 深色底纹理（WebGPU 下透明纹理渲染不可靠，高对比方案）
   const panelMaterial = new THREE.MeshBasicMaterial({
     map: texture,
-    transparent: true,
-    side: THREE.DoubleSide,
-    depthWrite: false,
+    side: THREE.FrontSide,
   });
   const panel = new THREE.Mesh(panelGeometry, panelMaterial);
   panel.name = "botPanel";
-  panel.rotation.x = -0.38; // 面向舱内驾驶员，略俯
+  panel.frustumCulled = false; // WebGPU 渲染器对旋转球体的视锥剔除有误杀，关闭
   group.add(panel);
 
-  /* —— 黄铜边框（sweepTube 风格环管 + 装饰铆钉） —— */
+  /* —— 黄铜赤道环 + 顶部支架（学主项目 sweepTube 环管思路） —— */
   const rimPoints = [];
   for (let i = 0; i <= 72; i += 1) {
     const a = (i / 72) * TAU;
-    rimPoints.push(new THREE.Vector3(Math.cos(a) * radius, Math.sin(a) * radius, 0));
+    rimPoints.push(new THREE.Vector3(Math.cos(a) * (radius + 0.025), Math.sin(a) * (radius + 0.025), 0));
   }
-  const rimGeometry = tubeFromPoints(rimPoints, 0.014, 10);
+  const rimGeometry = tubeFromPoints(rimPoints, 0.016, 10);
   const brass = new THREE.MeshPhysicalMaterial({
     color: 0xc7973f,
     metalness: 1,
@@ -58,41 +71,36 @@ export function createHudPanel({ scene, camera, dom, position, radius = 0.3 }) {
     envMapIntensity: 0.8,
   });
   const rim = new THREE.Mesh(rimGeometry, brass);
-  rim.rotation.x = -0.38;
+  rim.rotation.x = Math.PI / 2; // 赤道环（绕 y 轴）
   group.add(rim);
 
-  // 铆钉（InstancedMesh，学主项目 30 颗铆钉的做法）
-  const rivetCount = 12;
-  const rivetGeo = new THREE.SphereGeometry(0.008, 10, 8);
-  const rivets = new THREE.InstancedMesh(rivetGeo, brass, rivetCount);
-  const dummy = new THREE.Object3D();
-  for (let i = 0; i < rivetCount; i += 1) {
-    const a = (i / rivetCount) * TAU;
-    dummy.position.set(Math.cos(a) * radius, Math.sin(a) * radius, 0.012);
-    dummy.rotation.set(0, 0, 0);
-    dummy.scale.setScalar(1);
-    dummy.updateMatrix();
-    rivets.setMatrixAt(i, dummy.matrix);
-  }
-  rivets.instanceMatrix.needsUpdate = true;
-  rivets.rotation.x = -0.38;
-  group.add(rivets);
+  // 经线装饰（2 条正交弧，学主项目经纬笼架）
+  const meridianGeometry = tubeFromPoints(
+    meridianPoints(radius + 0.025),
+    0.01,
+    8,
+  );
+  const meridian = new THREE.Mesh(meridianGeometry, brass);
+  group.add(meridian);
+  const meridian2 = new THREE.Mesh(meridianGeometry, brass);
+  meridian2.rotation.y = Math.PI / 2;
+  group.add(meridian2);
 
   /* —— 支架：从舱顶垂下的黄铜杆 —— */
   const pole = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.012, 0.012, 0.34, 10),
+    new THREE.CylinderGeometry(0.012, 0.012, 0.36, 10),
     brass,
   );
-  pole.position.set(0, radius + 0.18, 0);
+  pole.position.set(0, radius + 0.2, 0);
   group.add(pole);
   const mount = new THREE.Mesh(
     new THREE.SphereGeometry(0.03, 16, 12),
     brass,
   );
-  mount.position.set(0, radius + 0.36, 0);
+  mount.position.set(0, radius + 0.38, 0);
   group.add(mount);
 
-  /* —— 状态光环（特效状态时在面板外圈发光） —— */
+  /* —— 状态光环（特效状态时绕全息球发光，赤道 + 纬线双环） —— */
   const haloMaterial = new THREE.MeshBasicMaterial({
     color: 0x79e2d0,
     transparent: true,
@@ -100,8 +108,11 @@ export function createHudPanel({ scene, camera, dom, position, radius = 0.3 }) {
     side: THREE.DoubleSide,
     depthWrite: false,
   });
-  const halo = new THREE.Mesh(new THREE.RingGeometry(radius + 0.02, radius + 0.045, 64), haloMaterial);
-  halo.rotation.x = -0.38;
+  const halo = new THREE.Mesh(
+    new THREE.TorusGeometry(radius + 0.05, 0.012, 8, 64),
+    haloMaterial,
+  );
+  halo.rotation.x = Math.PI / 2; // 赤道光环
   group.add(halo);
 
   /* —— 台词气泡（DOM overlay + 3D 投影） —— */
@@ -172,7 +183,7 @@ export function createHudPanel({ scene, camera, dom, position, radius = 0.3 }) {
       panelGeometry.dispose();
       panelMaterial.dispose();
       rimGeometry.dispose();
-      rivetGeo.dispose();
+      meridianGeometry.dispose();
       brass.dispose();
       halo.geometry.dispose();
       haloMaterial.dispose();
@@ -184,9 +195,18 @@ export function createHudPanel({ scene, camera, dom, position, radius = 0.3 }) {
   return api;
 }
 
+/* 子午线（绕 z 轴的圆，用于经纬笼架） */
+function meridianPoints(radius) {
+  const points = [];
+  for (let i = 0; i <= 48; i += 1) {
+    const a = (i / 48) * TAU;
+    points.push(new THREE.Vector3(Math.sin(a) * radius, Math.cos(a) * radius, 0));
+  }
+  return points;
+}
+
 /* 简易 sweepTube：沿点列的管状几何（移植自主项目 mesh-kit 思路） */
-function tubeFromPoints(points, radius, radialSegments = 10) {
-  const count = points.length;
+function tubeFromPoints(points, radius, radialSegments = 10) {  const count = points.length;
   const positions = [];
   const normals = [];
   const indices = [];

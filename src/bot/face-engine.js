@@ -439,10 +439,12 @@ export class FaceEngine {
       let s;
       do { s = this.pickState(); } while (s === this.activeState && ALL_STATES.length > 1);
       this.setState(s);
-      if (Math.random() < 0.14) {
-        const c = pick(GROKBOT_COLORS);
-        this.color = c[2];
-        if (this.onColor) this.onColor(c[2]);
+      // 自动换色：低频（8%）且只在暖萌色系里选，保持萌感（不出现黑/绿等冷色）
+      if (Math.random() < 0.08) {
+        const warm = ["#ff2d8b", "#ff6a00", "#ff9800", "#ff3347", "#ff5d9e"];
+        const c = pick(warm);
+        this.color = c;
+        if (this.onColor) this.onColor(c);
       }
     } catch (e) { /* 单次异常不卡死轮询 */ }
     this._setTimer("state", () => this.changeState(), rand(7000, 13000));

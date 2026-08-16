@@ -87,9 +87,9 @@ async function start() {
   const botViewButton = document.querySelector("#bot-view");
   if (botViewButton) {
     botViewButton.addEventListener("click", () => {
-      // 相机飞到潜水仓面板前方（穿过玻璃看舱内 bot）
-      const target = new THREE.Vector3(0, 0.7, 0.72);
-      const from = new THREE.Vector3(0, 1.35, 2.55);
+      // 相机在玻璃穹顶内看球（穹顶外会被玻璃透射干扰）
+      const target = new THREE.Vector3(0, 0.6, 1.7);
+      const from = new THREE.Vector3(0, 1.2, 2.6);
       const t0 = performance.now();
       const duration = 900;
       const fly = (now) => {

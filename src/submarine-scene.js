@@ -90,7 +90,7 @@ export function createPorcelainBrassSubmarineScene({
     camera,
     dom,
     position: new THREE.Vector3(0, 0.56, 0.72),
-    radius: 0.3,
+    radius: 0.32,
   });
   const hudLight = new THREE.PointLight(0xffd9a4, 0.9, 2.6, 2);
   hudLight.position.set(0, 0.56, 0.9);
