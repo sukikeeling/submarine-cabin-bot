@@ -42,7 +42,8 @@ export function createHudPanel({ scene, camera, dom, position, radius = 0.3 }) {
       const z = pos.getZ(i);
       const d = Math.sqrt(x * x + y * y + z * z) || 1;
       if (z / d < 0) {
-        uv.setXY(i, 0, 0); // 背面 → 深色底角落
+        // 背面 → 采样画布米白顶部（flipY 后 v=1 对应画布顶部最亮处）
+        uv.setXY(i, 0, 1);
       } else {
         uv.setXY(i, 0.5 + (x / d) * 0.5, 0.5 + (y / d) * 0.5);
       }

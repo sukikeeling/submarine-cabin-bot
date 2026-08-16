@@ -85,9 +85,9 @@ export class FaceCanvas {
     ctx.clearRect(0, 0, VIEW, VIEW);
     // 浅瓷色底（一体化：球体整体浅瓷色，任何角度看都是瓷球而非黑球）
     const gradient = ctx.createLinearGradient(0, 0, 0, VIEW);
-    gradient.addColorStop(0, "#e8e2d6");
-    gradient.addColorStop(0.55, "#d9d3c6");
-    gradient.addColorStop(1, "#c8c1b3");
+    gradient.addColorStop(0, "#f2ecdf");
+    gradient.addColorStop(0.55, "#e4ded0");
+    gradient.addColorStop(1, "#d6cfc0");
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, VIEW, VIEW);
 
