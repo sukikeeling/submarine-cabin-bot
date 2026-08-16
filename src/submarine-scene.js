@@ -3,6 +3,7 @@ import { color, uv, vec2 } from "three/tsl";
 import { createPorcelainBrassSubmarine } from
   "./submarine/submarine-model.js";
 import { createHudPanel } from "./bot/hud-panel.js";
+import { createBubbles } from "./bot/underwater-bubbles.js";
 
 const GROUND_Y = -1.34;
 const TAU = Math.PI * 2;
@@ -96,6 +97,15 @@ export function createPorcelainBrassSubmarineScene({
   hudLight.position.set(0, 0.56, 0.9);
   scene.add(hudLight);
 
+  /* —— 海洋气泡（移植自 D:\vibe-submarine 深海增强版） —— */
+  const bubbles = createBubbles({
+    count: 140,
+    center: new THREE.Vector3(0, -0.35, 0),
+    radius: 3.6,
+    height: 4.6,
+  });
+  scene.add(bubbles.object);
+
   const key = new THREE.DirectionalLight(0xffead4, 1.85);
   key.position.set(4.2, 5.4, 3.4);
   key.castShadow = true;
@@ -175,6 +185,7 @@ export function createPorcelainBrassSubmarineScene({
     },
     update({ delta, elapsed }) {
       submarine.update({ delta, elapsed });
+      bubbles.update({ delta });
       hud.update(performance.now(), elapsed);
       if (controls) {
         controls.target.y = Math.max(GROUND_Y + 0.25, controls.target.y);
@@ -198,6 +209,7 @@ export function createPorcelainBrassSubmarineScene({
       submarine.dispose();
       hud.dispose();
       hudLight.dispose();
+      bubbles.dispose();
       ground.geometry.dispose();
       groundMaterial.dispose();
       blush.geometry.dispose();

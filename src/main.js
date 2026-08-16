@@ -123,6 +123,7 @@ async function start() {
   }
 
   window.__experience = experience; // 调试/验证句柄
+  window.__debug = { camera, controls }; // 调试句柄（视角验证用）
   let paused = false;
   let previous = performance.now();
   let elapsed = 0;

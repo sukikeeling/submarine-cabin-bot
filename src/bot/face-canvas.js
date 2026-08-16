@@ -83,8 +83,12 @@ export class FaceCanvas {
     const s = this.scale;
     ctx.setTransform(s, 0, 0, s, 0, 0);
     ctx.clearRect(0, 0, VIEW, VIEW);
-    // 不透明深色底（全息球底色，WebGPU 下透明纹理不可靠，用高对比方案）
-    ctx.fillStyle = "#1c2733";
+    // 不透明深色底（全息球底色，垂直渐变：顶部略亮模拟环境光，与黄铜环接触更柔和）
+    const gradient = ctx.createLinearGradient(0, 0, 0, VIEW);
+    gradient.addColorStop(0, "#3b4a5e");
+    gradient.addColorStop(0.55, "#1c2733");
+    gradient.addColorStop(1, "#131b25");
+    ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, VIEW, VIEW);
 
     const { rings, eyeTransforms, body, state, color, line } = snapshot;

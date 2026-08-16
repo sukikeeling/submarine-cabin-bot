@@ -6,6 +6,7 @@
    - 点击摸头 / 换心情 / 暂停 / 换色
    ============================================================ */
 import * as THREE from "three/webgpu";
+import { texture as textureNode, positionLocal, normalize, select, vec2 } from "three/tsl";
 import { FaceEngine } from "./face-engine.js";
 import { FaceCanvas } from "./face-canvas.js";
 
@@ -31,25 +32,16 @@ export function createHudPanel({ scene, camera, dom, position, radius = 0.3 }) {
 
   /* —— 面板 mesh（全息球：小脸包在立体球面上，告别平面贴片感） —— */
   const panelGeometry = new THREE.SphereGeometry(radius, 48, 32);
-  // 平面投影 UV：正面(+z)采样画布中央(小脸)，背面/侧面采样画布边缘(透明)——
-  // 不依赖 rotation、不镜像，blob 永远正对 +z（观察者方向）
+  // TSL 材质：平面投影采样 + 背面强制深色底（消除"背后多一双眼睛"的镜像问题）
+  const panelMaterial = new THREE.MeshBasicNodeMaterial({ side: THREE.FrontSide });
   {
-    const uv = panelGeometry.attributes.uv;
-    const pos = panelGeometry.attributes.position;
-    for (let i = 0; i < pos.count; i += 1) {
-      const x = pos.getX(i);
-      const y = pos.getY(i);
-      const z = pos.getZ(i);
-      const d = Math.sqrt(x * x + y * y + z * z) || 1;
-      uv.setXY(i, 0.5 + (x / d) * 0.5, 0.5 + (y / d) * 0.5);
-    }
-    uv.needsUpdate = true;
+    const dir = normalize(positionLocal); // 球心在原点，直接用法线方向
+    const backUV = vec2(0, 0); // 画布 (0,0) = 深色底角落
+    const frontUV = vec2(0.5 + dir.x * 0.5, 0.5 + dir.y * 0.5);
+    panelMaterial.colorNode = textureNode(texture).sample(
+      select(dir.z.lessThan(0), backUV, frontUV),
+    );
   }
-  // 不透明材质 + 深色底纹理（WebGPU 下透明纹理渲染不可靠，高对比方案）
-  const panelMaterial = new THREE.MeshBasicMaterial({
-    map: texture,
-    side: THREE.FrontSide,
-  });
   const panel = new THREE.Mesh(panelGeometry, panelMaterial);
   panel.name = "botPanel";
   panel.frustumCulled = false; // WebGPU 渲染器对旋转球体的视锥剔除有误杀，关闭
@@ -59,7 +51,7 @@ export function createHudPanel({ scene, camera, dom, position, radius = 0.3 }) {
   const rimPoints = [];
   for (let i = 0; i <= 72; i += 1) {
     const a = (i / 72) * TAU;
-    rimPoints.push(new THREE.Vector3(Math.cos(a) * (radius + 0.025), Math.sin(a) * (radius + 0.025), 0));
+    rimPoints.push(new THREE.Vector3(Math.cos(a) * (radius + 0.045), Math.sin(a) * (radius + 0.045), 0));
   }
   const rimGeometry = tubeFromPoints(rimPoints, 0.016, 10);
   const brass = new THREE.MeshPhysicalMaterial({
@@ -76,7 +68,7 @@ export function createHudPanel({ scene, camera, dom, position, radius = 0.3 }) {
 
   // 经线装饰（2 条正交弧，学主项目经纬笼架）
   const meridianGeometry = tubeFromPoints(
-    meridianPoints(radius + 0.025),
+    meridianPoints(radius + 0.045),
     0.01,
     8,
   );
