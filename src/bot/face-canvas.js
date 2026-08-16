@@ -83,11 +83,11 @@ export class FaceCanvas {
     const s = this.scale;
     ctx.setTransform(s, 0, 0, s, 0, 0);
     ctx.clearRect(0, 0, VIEW, VIEW);
-    // 不透明深色底（全息球底色，垂直渐变：顶部略亮模拟环境光，与黄铜环接触更柔和）
+    // 浅瓷色底（一体化：球体整体浅瓷色，任何角度看都是瓷球而非黑球）
     const gradient = ctx.createLinearGradient(0, 0, 0, VIEW);
-    gradient.addColorStop(0, "#3b4a5e");
-    gradient.addColorStop(0.55, "#1c2733");
-    gradient.addColorStop(1, "#131b25");
+    gradient.addColorStop(0, "#e8e2d6");
+    gradient.addColorStop(0.55, "#d9d3c6");
+    gradient.addColorStop(1, "#c8c1b3");
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, VIEW, VIEW);
 
@@ -99,13 +99,17 @@ export class FaceCanvas {
     ctx.rotate((body.rot * Math.PI) / 180);
     ctx.scale(body.sx, body.sy);
     const blob = new Path2D(BLOB_PATH);
-    // 全息外发光：blob 边缘柔和光晕（提高透明球上的可见性）
+    // 全息外发光：blob 边缘柔和光晕（浅色底上提高辨识度）
     ctx.save();
     ctx.shadowColor = color;
-    ctx.shadowBlur = 26;
-    ctx.fillStyle = "rgba(255,255,255,0.10)";
+    ctx.shadowBlur = 22;
+    ctx.fillStyle = "rgba(255,255,255,0.18)";
     ctx.fill(blob);
     ctx.restore();
+    // 深色描边：浅瓷底上保证 blob 轮廓清晰（对比度）
+    ctx.strokeStyle = "rgba(120,72,88,0.5)";
+    ctx.lineWidth = 3;
+    ctx.stroke(blob);
     ctx.fillStyle = color;
     ctx.fill(blob);
     // 腮红（萌感）：脸颊两侧半透明圆
@@ -139,8 +143,12 @@ export class FaceCanvas {
       ctx.scale(tr.sx, tr.sy);
       ctx.translate(-c[0], -c[1]);
       ctx.fillStyle = "#fffdf7";
+      ctx.strokeStyle = "rgba(120,72,88,0.35)";
+      ctx.lineWidth = 1.2;
       ctx.globalAlpha = tr.opacity;
-      ctx.fill(smoothRingPath(ring));
+      const eyePath = smoothRingPath(ring);
+      ctx.fill(eyePath);
+      ctx.stroke(eyePath);
       ctx.globalAlpha = 1;
       ctx.restore();
     }
