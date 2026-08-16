@@ -3,6 +3,10 @@
 > **结论：可行，已实现并验证。** moodie-pet 的自动轮询小脸 bot 成功植入
 > vibe-submarine 潜水艇的玻璃穹顶驾驶舱内，表情/状态/台词全自动轮询运行。
 
+**🌐 在线体验：https://sukikeeling.github.io/submarine-cabin-bot/**
+
+[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 ## 做了什么
 
 在 vibe-submarine（主项目，Three.js WebGPU 全程序化瓷器黄铜潜水艇）的驾驶舱
