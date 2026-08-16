@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="一艘完全由代码生成的瓷器与黄铜潜水艇，使用 Three.js WebGPU、TSL 和程序化几何实现。"
+    />
+    <meta name="theme-color" content="#b8b1a7" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='28' fill='%23ff5d9e'/%3E%3Cellipse cx='24' cy='28' rx='6' ry='8' fill='%23fffdf7'/%3E%3Cellipse cx='41' cy='26' rx='6' ry='8' fill='%23fffdf7'/%3E%3C/svg%3E" />
+    <meta property="og:title" content="Vibe Submarine · Procedural Three.js" />
+    <meta
+      property="og:description"
+      content="一艘完全由代码生成的瓷器与黄铜潜水艇。"
+    />
+    <meta
+      property="og:image"
+      content="https://sub.liuwa.xyz/assets/how-code-becomes-real.png"
+    />
+    <title>Vibe Submarine · Procedural Three.js</title>
+  </head>
+  <body>
+    <canvas id="scene" aria-label="可交互的程序化瓷器与黄铜潜水艇"></canvas>
+
+    <header class="brand">
+      <p>PROCEDURAL THREE.JS STUDY</p>
+      <h1>Vibe Submarine</h1>
+      <span>Porcelain · Brass · Glass · Code</span>
+    </header>
+
+    <aside class="controls" aria-label="场景控制">
+      <div class="control-group">
+        <span class="control-label">VIEW</span>
+        <button class="is-active" data-mode="final">最终效果</button>
+        <button data-mode="topology">装配线框</button>
+        <button data-mode="hull-loft">船体放样</button>
+        <button data-mode="no-glass">隐藏玻璃</button>
+      </div>
+      <div class="control-group control-actions">
+        <button id="pause" aria-pressed="false">暂停动画</button>
+        <button id="reset">重置视角</button>
+      </div>
+      <div class="control-group" data-bot-group>
+        <span class="control-label">BOT</span>
+        <button id="bot-next-mood">换心情</button>
+        <button id="bot-pause">bot 暂停</button>
+        <button id="bot-color">换颜色</button>
+        <button id="bot-view">看 bot</button>
+      </div>
+      <p class="hint">拖动旋转 · 滚轮缩放 · 右键平移 · 点击舱内面板摸头</p>
+    </aside>
+
+    <div class="metrics" aria-live="polite">
+      <span><b id="fps">--</b> FPS</span>
+      <span><b id="draws">--</b> DRAWS</span>
+      <span><b id="triangles">--</b> TRIS</span>
+    </div>
+
+    <div id="loading" class="loading">
+      <div class="loader" aria-hidden="true"></div>
+      <p>正在生成潜水艇几何与材质…</p>
+    </div>
+
+    <div id="error" class="error" role="alert" hidden></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

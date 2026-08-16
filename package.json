@@ -1,0 +1,18 @@
+{
+  "name": "pet-1-submarine-cabin",
+  "version": "1.0.0",
+  "private": true,
+  "description": "头脑风暴1：把 moodie-pet 的自动轮询小脸 bot 植入 vibe-submarine 潜水仓驾驶舱内",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5181",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 5181"
+  },
+  "dependencies": {
+    "three": "0.184.0"
+  },
+  "devDependencies": {
+    "vite": "8.1.5"
+  }
+}
