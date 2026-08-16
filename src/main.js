@@ -103,6 +103,24 @@ async function start() {
       fly(performance.now());
     });
   }
+  const showcaseButton = document.querySelector("#bot-showcase");
+  if (showcaseButton) {
+    let showcaseTimer = null;
+    showcaseButton.addEventListener("click", () => {
+      if (showcaseTimer) {
+        clearInterval(showcaseTimer);
+        showcaseTimer = null;
+        showcaseButton.textContent = "表情秀";
+        return;
+      }
+      let exprIndex = experience.bot().engine.expression;
+      showcaseTimer = setInterval(() => {
+        exprIndex = (exprIndex + 1) % 25;
+        experience.bot().engine.chooseExpression(exprIndex);
+      }, 1200);
+      showcaseButton.textContent = "停止";
+    });
+  }
 
   window.__experience = experience; // 调试/验证句柄
   let paused = false;
