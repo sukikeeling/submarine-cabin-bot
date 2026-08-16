@@ -59,6 +59,22 @@ export function createHudPanel({ scene, camera, dom, position, radius = 0.3 }) {
   panel.frustumCulled = false; // WebGPU 渲染器对旋转球体的视锥剔除有误杀，关闭
   group.add(panel);
 
+  /* —— 背面一体化：BackSide 浅瓷球（受环境光，背面不再是纯黑） —— */
+  const backSphere = new THREE.Mesh(
+    panelGeometry,
+    new THREE.MeshStandardMaterial({
+      color: 0xd9d4ca, // 浅瓷色，与摄影棚环境协调
+      roughness: 0.42,
+      metalness: 0,
+      side: THREE.BackSide, // 只显示背面
+      envMapIntensity: 0.55,
+    }),
+  );
+  backSphere.name = "botPanelBack";
+  backSphere.frustumCulled = false;
+  group.add(backSphere);
+  const backMaterial = backSphere.material;
+
   /* —— 黄铜赤道环 + 顶部支架（学主项目 sweepTube 环管思路） —— */
   const rimPoints = [];
   for (let i = 0; i <= 72; i += 1) {
@@ -186,6 +202,7 @@ export function createHudPanel({ scene, camera, dom, position, radius = 0.3 }) {
       texture.dispose();
       panelGeometry.dispose();
       panelMaterial.dispose();
+      backMaterial.dispose();
       rimGeometry.dispose();
       meridianGeometry.dispose();
       brass.dispose();
