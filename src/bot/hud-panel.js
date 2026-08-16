@@ -6,7 +6,6 @@
    - 点击摸头 / 换心情 / 暂停 / 换色
    ============================================================ */
 import * as THREE from "three/webgpu";
-import { texture as textureNode, positionLocal, normalize, select, vec2 } from "three/tsl";
 import { FaceEngine } from "./face-engine.js";
 import { FaceCanvas } from "./face-canvas.js";
 
@@ -32,16 +31,29 @@ export function createHudPanel({ scene, camera, dom, position, radius = 0.3 }) {
 
   /* —— 面板 mesh（全息球：小脸包在立体球面上，告别平面贴片感） —— */
   const panelGeometry = new THREE.SphereGeometry(radius, 48, 32);
-  // TSL 材质：平面投影采样 + 背面强制深色底（消除"背后多一双眼睛"的镜像问题）
-  const panelMaterial = new THREE.MeshBasicNodeMaterial({ side: THREE.FrontSide });
+  // 预计算 UV：正面(+z)平面投影采样画布中央(小脸)；背面顶点 UV 强制 (0,0)
+  // 深色底角落——既消除"背后镜像眼睛"，又避开 WebGPU 下 TSL 材质的渲染问题
   {
-    const dir = normalize(positionLocal); // 球心在原点，直接用法线方向
-    const backUV = vec2(0, 0); // 画布 (0,0) = 深色底角落
-    const frontUV = vec2(0.5 + dir.x * 0.5, 0.5 + dir.y * 0.5);
-    panelMaterial.colorNode = textureNode(texture).sample(
-      select(dir.z.lessThan(0), backUV, frontUV),
-    );
+    const uv = panelGeometry.attributes.uv;
+    const pos = panelGeometry.attributes.position;
+    for (let i = 0; i < pos.count; i += 1) {
+      const x = pos.getX(i);
+      const y = pos.getY(i);
+      const z = pos.getZ(i);
+      const d = Math.sqrt(x * x + y * y + z * z) || 1;
+      if (z / d < 0) {
+        uv.setXY(i, 0, 0); // 背面 → 深色底角落
+      } else {
+        uv.setXY(i, 0.5 + (x / d) * 0.5, 0.5 + (y / d) * 0.5);
+      }
+    }
+    uv.needsUpdate = true;
   }
+  // 不透明材质 + 深色底纹理（WebGPU 下透明纹理渲染不可靠，高对比方案）
+  const panelMaterial = new THREE.MeshBasicMaterial({
+    map: texture,
+    side: THREE.FrontSide,
+  });
   const panel = new THREE.Mesh(panelGeometry, panelMaterial);
   panel.name = "botPanel";
   panel.frustumCulled = false; // WebGPU 渲染器对旋转球体的视锥剔除有误杀，关闭
