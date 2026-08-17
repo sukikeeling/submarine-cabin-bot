@@ -194,6 +194,8 @@ async function start() {
 
   renderer.setAnimationLoop(frame);
   loading.classList.add("is-hidden");
+  window.__experience = experience;
+  window.__bot = experience.bot();
 
   window.addEventListener("pagehide", () => {
     renderer.setAnimationLoop(null);

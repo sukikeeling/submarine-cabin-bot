@@ -1,12 +1,36 @@
 /* ============================================================
    face-canvas.js —— 把 FaceEngine 状态渲染到 2D 画布
    用于潜水舱内的舰载 AI 全息屏（CanvasTexture 数据源）。
-   绘制：粉色 blob 身体 + 白色眼睛环（Catmull-Rom 平滑）+ 屏内特效
+   优化：全色系深度融合（消除底色与身体颜色断层），支持动态换色联动、
+   全息光晕、通透陶瓷/发光质感与屏内丰富粒子。
    ============================================================ */
 import { BLOB_PATH } from "./face-engine.js";
 
 const VIEW = 230; // 原版 SVG 视口
 const TAU = Math.PI * 2;
+
+/* —— 颜色辅助函数：十六进制与透明度/亮度混合 —— */
+function hexToRgb(hex) {
+  let c = (hex || "#ff5d9e").replace("#", "");
+  if (c.length === 3) c = c.split("").map((x) => x + x).join("");
+  const num = parseInt(c, 16) || 0xff5d9e;
+  return {
+    r: (num >> 16) & 255,
+    g: (num >> 8) & 255,
+    b: num & 255,
+  };
+}
+
+function adjustColorBrightness(hex, factor) {
+  const { r, g, b } = hexToRgb(hex);
+  const adj = (v) => Math.min(255, Math.max(0, Math.round(v * factor)));
+  return `rgb(${adj(r)},${adj(g)},${adj(b)})`;
+}
+
+function hexToRgba(hex, alpha) {
+  const { r, g, b } = hexToRgb(hex);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
 
 /* —— 原版 smoothRing：Catmull-Rom 平滑闭合路径 —— */
 function smoothRingPath(ring, tension = 1) {
@@ -62,10 +86,10 @@ export class FaceCanvas {
     const glyph = PARTICLE_GLYPHS[state] || ["·", "#fff"];
     for (let i = 0; i < count; i += 1) {
       this.particles.push({
-        x: 115 + (Math.random() - 0.5) * 160,
-        y: 150 + Math.random() * 60,
-        vx: (Math.random() - 0.5) * 22,
-        vy: -30 - Math.random() * 40,
+        x: 115 + (Math.random() - 0.5) * 150,
+        y: 150 + Math.random() * 50,
+        vx: (Math.random() - 0.5) * 20,
+        vy: -28 - Math.random() * 38,
         life: 1,
         decay: 0.6 + Math.random() * 0.9,
         glyph: glyph[0],
@@ -83,53 +107,87 @@ export class FaceCanvas {
     const s = this.scale;
     ctx.setTransform(s, 0, 0, s, 0, 0);
     ctx.clearRect(0, 0, VIEW, VIEW);
-    // 浅瓷色底（一体化：球体整体浅瓷色，任何角度看都是瓷球而非黑球）
-    const gradient = ctx.createLinearGradient(0, 0, 0, VIEW);
-    gradient.addColorStop(0, "#f2ecdf");
-    gradient.addColorStop(0.55, "#e4ded0");
-    gradient.addColorStop(1, "#d6cfc0");
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, VIEW, VIEW);
 
     const { rings, eyeTransforms, body, state, color, line } = snapshot;
+    const baseHex = color || "#ff5d9e";
 
-    /* —— 身体 blob —— */
+    /* —— 全息球体一体化底色（同色系光晕，杜绝前后断层与割裂） —— */
+    const bgGrad = ctx.createRadialGradient(
+      VIEW * 0.5, VIEW * 0.48, 10,
+      VIEW * 0.5, VIEW * 0.5, VIEW * 0.65
+    );
+    bgGrad.addColorStop(0, adjustColorBrightness(baseHex, 1.45));
+    bgGrad.addColorStop(0.35, adjustColorBrightness(baseHex, 1.15));
+    bgGrad.addColorStop(0.72, baseHex);
+    bgGrad.addColorStop(1, adjustColorBrightness(baseHex, 0.65));
+
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, VIEW, VIEW);
+
+    // 细微的全息扫描经纬网格（微弱科技质感）
+    ctx.save();
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+    ctx.lineWidth = 1;
+    for (let y = 18; y < VIEW; y += 24) {
+      ctx.beginPath();
+      ctx.moveTo(10, y);
+      ctx.lineTo(VIEW - 10, y);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    /* —— 身体 blob（立体高光与全息光晕） —— */
     ctx.save();
     ctx.translate(0, body.y);
     ctx.rotate((body.rot * Math.PI) / 180);
     ctx.scale(body.sx, body.sy);
     const blob = new Path2D(BLOB_PATH);
-    // 全息外发光：blob 边缘柔和光晕（浅色底上提高辨识度）
+
+    // 全息外发光：柔和光晕
     ctx.save();
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 22;
-    ctx.fillStyle = "rgba(255,255,255,0.18)";
+    ctx.shadowColor = adjustColorBrightness(baseHex, 1.3);
+    ctx.shadowBlur = 18;
+    ctx.fillStyle = "rgba(255, 255, 255, 0.22)";
     ctx.fill(blob);
     ctx.restore();
-    // 深色描边：浅瓷底上保证 blob 轮廓清晰（对比度）
-    ctx.strokeStyle = "rgba(120,72,88,0.5)";
-    ctx.lineWidth = 3;
-    ctx.stroke(blob);
-    ctx.fillStyle = color;
+
+    // 身体本体填色（平滑微渐变，增强立体饱满感）
+    const bodyGrad = ctx.createLinearGradient(0, 30, 0, 190);
+    bodyGrad.addColorStop(0, adjustColorBrightness(baseHex, 1.25));
+    bodyGrad.addColorStop(0.5, baseHex);
+    bodyGrad.addColorStop(1, adjustColorBrightness(baseHex, 0.85));
+
+    ctx.fillStyle = bodyGrad;
     ctx.fill(blob);
-    // 腮红（萌感）：脸颊两侧半透明圆
-    ctx.globalAlpha = 0.55;
-    ctx.fillStyle = "#ff7d9e";
+
+    // 边缘柔和描边
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.35)";
+    ctx.lineWidth = 2.5;
+    ctx.stroke(blob);
+
+    // 身体顶部微光（3D 球面感）
+    ctx.save();
     ctx.beginPath();
-    ctx.ellipse(60, 152, 13, 9, 0, 0, TAU);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(170, 152, 13, 9, 0, 0, TAU);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-    // 顶部釉面高光（让屏内小脸也有立体感）
-    ctx.beginPath();
-    ctx.ellipse(88, 48, 30, 14, -0.5, 0, TAU);
-    ctx.fillStyle = "rgba(255,255,255,0.28)";
+    ctx.ellipse(115, 65, 48, 22, 0, 0, TAU);
+    const topHighlight = ctx.createRadialGradient(115, 65, 2, 115, 65, 48);
+    topHighlight.addColorStop(0, "rgba(255, 255, 255, 0.45)");
+    topHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+    ctx.fillStyle = topHighlight;
     ctx.fill();
     ctx.restore();
 
-    /* —— 眼睛环 —— */
+    // 腮红（萌感）：脸颊两侧柔和釉下腮红
+    ctx.save();
+    ctx.globalAlpha = 0.65;
+    const blushColor = adjustColorBrightness(baseHex, 1.4);
+    ctx.fillStyle = blushColor;
+    ctx.beginPath();
+    ctx.ellipse(60, 150, 14, 9, -0.08, 0, TAU);
+    ctx.ellipse(170, 150, 14, 9, 0.08, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+
+    /* —— 眼睛环（白色环，Catmull-Rom 平滑闭合路径） —— */
     for (let i = 0; i < rings.length; i += 1) {
       const ring = rings[i];
       const tr = eyeTransforms[i];
@@ -143,17 +201,19 @@ export class FaceCanvas {
       ctx.scale(tr.sx, tr.sy);
       ctx.translate(-c[0], -c[1]);
       ctx.fillStyle = "#fffdf7";
-      ctx.strokeStyle = "rgba(120,72,88,0.35)";
+      ctx.shadowColor = "rgba(255, 255, 255, 0.85)";
+      ctx.shadowBlur = 8;
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
       ctx.lineWidth = 1.2;
       ctx.globalAlpha = tr.opacity;
       const eyePath = smoothRingPath(ring);
       ctx.fill(eyePath);
       ctx.stroke(eyePath);
-      ctx.globalAlpha = 1;
       ctx.restore();
     }
+    ctx.restore(); // 恢复 body 变换
 
-    /* —— 屏内粒子 —— */
+    /* —— 屏内漂浮粒子 —— */
     this.particles = this.particles.filter((p) => p.life > 0);
     for (const p of this.particles) {
       p.x += p.vx * dt;
@@ -175,23 +235,23 @@ export class FaceCanvas {
     if (this.ringFx) {
       this._ringTime = (now - this.ringFx.start) / 1000;
       if (this._ringTime > 10) {
-        this.ringFx = null; // 特效状态已切换，自动清除
+        this.ringFx = null;
       } else {
         this.drawRingFx(now);
       }
     }
 
-    /* —— 状态角标 —— */
-    ctx.fillStyle = "rgba(20,24,34,0.55)";
-    ctx.font = "600 13px system-ui, sans-serif";
+    /* —— 状态角标与提示 —— */
+    ctx.fillStyle = "rgba(255, 255, 255, 0.82)";
+    ctx.font = "bold 13px system-ui, sans-serif";
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
-    ctx.fillText(state.toUpperCase(), 10, 8);
+    ctx.fillText(`AI · ${state.toUpperCase()}`, 12, 10);
     if (line) {
-      ctx.fillStyle = "rgba(20,24,34,0.45)";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
       ctx.font = "500 11px system-ui, sans-serif";
       ctx.textAlign = "right";
-      ctx.fillText(line.slice(0, 12), VIEW - 10, VIEW - 18);
+      ctx.fillText(line.slice(0, 14), VIEW - 12, VIEW - 18);
     }
   }
 
@@ -231,9 +291,9 @@ export class FaceCanvas {
       }
       case "loading": {
         ctx.rotate(t * 5);
-        ctx.strokeStyle = "#ff5d9e";
+        ctx.strokeStyle = "#ffd84d";
         ctx.lineWidth = 4;
-        ctx.shadowColor = "#ff5d9e";
+        ctx.shadowColor = "#ffd84d";
         ctx.shadowBlur = 10;
         ctx.beginPath();
         ctx.arc(0, 0, 74, 0, TAU * 0.72);
@@ -258,10 +318,10 @@ export class FaceCanvas {
         grad.addColorStop(0.5, "rgba(121,226,208,0.9)");
         grad.addColorStop(1, "rgba(121,226,208,0)");
         ctx.strokeStyle = grad;
-        ctx.lineWidth = 6;
+        ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.moveTo(sx, -80);
-        ctx.lineTo(sx, 80);
+        ctx.moveTo(sx, -75);
+        ctx.lineTo(sx, 75);
         ctx.stroke();
         break;
       }
@@ -269,9 +329,5 @@ export class FaceCanvas {
         break;
     }
     ctx.restore();
-  }
-
-  resize(canvasW) {
-    // 保持比例即可，无需处理
   }
 }
