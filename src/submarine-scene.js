@@ -68,70 +68,63 @@ function buildStudioEnvironment() {
   return environment;
 }
 
-/* —— 深海发光浮游孢子粒子系统（丰富场景空间感） —— */
-function createBioluminescentSpores(count = 72) {
-  const geo = new THREE.BufferGeometry();
-  const positions = new Float32Array(count * 3);
-  const colors = new Float32Array(count * 3);
-  const data = [];
-  const palette = [0x79e2d0, 0x5df5e0, 0xffd84d, 0xff5d9e, 0x82b4ff];
+/* —— 深海发光浮游生物群（清晰立体的发光小晶球，随洋流呼吸脉冲） —— */
+function createBioluminescentSpores(count = 60) {
+  const group = new THREE.Group();
+  const sporeGeo = new THREE.SphereGeometry(0.026, 12, 10);
+  const palette = [0x79e2d0, 0x5df5e0, 0xffd84d, 0xff5d9e, 0x82b4ff, 0x08c77a];
+  const spores = [];
 
   for (let i = 0; i < count; i += 1) {
+    const hex = palette[i % palette.length];
+    const mat = new THREE.MeshBasicMaterial({
+      color: hex,
+      transparent: true,
+      opacity: 0.85,
+    });
+    const mesh = new THREE.Mesh(sporeGeo, mat);
+
     const angle = Math.random() * TAU;
-    const r = 1.2 + Math.random() * 3.8;
-    const y = -0.8 + Math.random() * 2.8;
-    const z = Math.sin(angle) * r;
+    const r = 1.1 + Math.random() * 3.6;
+    const y = -0.7 + Math.random() * 2.8;
     const x = Math.cos(angle) * r;
+    const z = Math.sin(angle) * r;
 
-    positions[i * 3] = x;
-    positions[i * 3 + 1] = y;
-    positions[i * 3 + 2] = z;
+    mesh.position.set(x, y, z);
+    group.add(mesh);
 
-    const c = new THREE.Color(palette[i % palette.length]);
-    colors[i * 3] = c.r;
-    colors[i * 3 + 1] = c.g;
-    colors[i * 3 + 2] = c.b;
-
-    data.push({
+    spores.push({
+      mesh,
+      mat,
       x, y, z,
       phase: Math.random() * TAU,
-      speedX: (Math.random() - 0.5) * 0.08,
-      speedY: 0.04 + Math.random() * 0.08,
-      wobbleSpeed: 0.5 + Math.random() * 1.5,
+      speedY: 0.05 + Math.random() * 0.08,
+      wobbleSpeed: 0.8 + Math.random() * 1.6,
+      baseScale: 0.6 + Math.random() * 0.8,
     });
   }
 
-  geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-  geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-
-  const mat = new THREE.PointsMaterial({
-    size: 0.038,
-    vertexColors: true,
-    transparent: true,
-    opacity: 0.85,
-    depthWrite: false,
-    sizeAttenuation: true,
-  });
-
-  const points = new THREE.Points(geo, mat);
-
   return {
-    object: points,
+    object: group,
     update(now, dt) {
-      const pos = geo.attributes.position;
-      for (let i = 0; i < count; i += 1) {
-        const d = data[i];
-        d.y += d.speedY * dt;
-        if (d.y > 2.2) d.y = -0.8;
-        const wx = Math.sin(now * 0.001 * d.wobbleSpeed + d.phase) * 0.12;
-        const wz = Math.cos(now * 0.001 * d.wobbleSpeed + d.phase) * 0.12;
-        pos.setXYZ(i, d.x + wx, d.y, d.z + wz);
+      for (const sp of spores) {
+        sp.y += sp.speedY * dt;
+        if (sp.y > 2.2) sp.y = -0.7;
+        const wx = Math.sin(now * 0.001 * sp.wobbleSpeed + sp.phase) * 0.15;
+        const wz = Math.cos(now * 0.001 * sp.wobbleSpeed + sp.phase) * 0.15;
+        sp.mesh.position.set(sp.x + wx, sp.y, sp.z + wz);
+        // 呼吸脉冲缩放与透明度
+        const pulse = 0.5 + 0.5 * Math.sin(now * 0.003 + sp.phase);
+        const s = sp.baseScale * (0.8 + 0.4 * pulse);
+        sp.mesh.scale.set(s, s, s);
+        sp.mat.opacity = 0.45 + 0.45 * pulse;
       }
-      pos.needsUpdate = true;
     },
     dispose() {
-      geo.dispose();
-      mat.dispose();
+      sporeGeo.dispose();
+      for (const sp of spores) {
+        sp.mat.dispose();
+      }
     },
   };
 }
@@ -161,11 +154,10 @@ export function createPorcelainBrassSubmarineScene({
     position: new THREE.Vector3(0, 0.56, 0.72),
     radius: 0.32,
   });
-  const hudLight = new THREE.PointLight(0xffd9a4, 1.1, 2.8, 2);
-  hudLight.position.set(0, 0.56, 0.9);
+  const hudLight = new THREE.PointLight(0xffd9a4, 1.2, 3.2, 2);
+  hudLight.position.set(0, 0.56, 0.95);
   scene.add(hudLight);
 
-  // 包装 setColor 联动舱内点光源
   const originalSetColor = hud.setColor.bind(hud);
   hud.setColor = (hex) => {
     originalSetColor(hex);
@@ -182,7 +174,7 @@ export function createPorcelainBrassSubmarineScene({
   scene.add(bubbles.object);
 
   /* —— 深海生物发光游弋孢子群 —— */
-  const spores = createBioluminescentSpores(72);
+  const spores = createBioluminescentSpores(60);
   scene.add(spores.object);
 
   const key = new THREE.DirectionalLight(0xffead4, 1.85);
