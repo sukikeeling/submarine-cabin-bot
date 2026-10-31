@@ -57,3 +57,7 @@ npm run build      # 产物在 dist/
 - 辅项目 [sukikeeling/moodie-pet](https://github.com/sukikeeling/moodie-pet)（MIT，
   数据引擎源自 zhulin025/LaoA-GrokBot，作者同一人，融合天然合理）
 - 气泡粒子移植自深海增强版分支（feat/deep-sea-enhancement）
+
+## 仓库声明
+
+本仓库的署名与参考规范见 [NOTICE](NOTICE)：参考、借鉴或改造本仓库时，请标明来源 sukikeeling/submarine-cabin-bot。
